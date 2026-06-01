@@ -28,3 +28,6 @@ ollama/
 
 # DB
 postgres/
+
+data/*
+!data/**/.gitkeep
