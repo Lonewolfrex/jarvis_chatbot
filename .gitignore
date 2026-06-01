@@ -1,0 +1,30 @@
+# Environment
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Runtime
+data/
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+*.log
+
+# Build
+dist/
+build/
+
+# Local AI
+ollama/
+
+# DB
+postgres/
