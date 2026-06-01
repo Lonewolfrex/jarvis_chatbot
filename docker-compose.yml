@@ -1,0 +1,36 @@
+services:
+
+  backend:
+
+    build: ./backend
+
+    container_name: jarvis_backend
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - ./backend:/app
+
+    env_file:
+      - .env
+
+    depends_on:
+      - db
+
+  db:
+
+    image: postgres:16
+
+    container_name: jarvis_db
+
+    environment:
+      POSTGRES_DB: jarvis
+      POSTGRES_USER: jarvis
+      POSTGRES_PASSWORD: jarvis
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
