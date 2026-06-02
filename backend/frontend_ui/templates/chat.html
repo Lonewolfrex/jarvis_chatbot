@@ -1,0 +1,33 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jarvis Chat</title>
+
+    <link rel="stylesheet" href="{% static 'css/chat.css' %}">
+</head>
+
+<body>
+
+<div class="chat-wrapper">
+
+    <div class="top-bar">
+        <h2>Jarvis AI</h2>
+
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+
+    <div id="messages" class="messages"></div>
+
+    <div class="input-box">
+        <input id="messageInput" placeholder="Ask something..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+</div>
+
+<script src="{% static 'js/chat.js' %}"></script>
+
+</body>
+</html>

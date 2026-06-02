@@ -1,11 +1,12 @@
 services:
 
   backend:
-
     build:
       context: ./backend
 
     container_name: jarvis_backend
+
+    working_dir: /app   # ✅ correct placement
 
     ports:
       - "8000:8000"
@@ -16,28 +17,23 @@ services:
     env_file:
       - .env
 
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
     depends_on:
       - db
 
-    command: >
-      python manage.py runserver 0.0.0.0:8000
-
+    command: python manage.py runserver 0.0.0.0:8000 --insecure
 
   db:
-
     image: postgres:16
-
     container_name: jarvis_db
-
     restart: always
-
     environment:
       POSTGRES_DB: jarvis
       POSTGRES_USER: jarvis
       POSTGRES_PASSWORD: jarvis
-
     ports:
       - "5432:5432"
-
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
