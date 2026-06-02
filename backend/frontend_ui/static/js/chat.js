@@ -1,250 +1,121 @@
 let currentSessionId = null;
 
-window.onload = async function () {
+window.addEventListener("pageshow", () => {
+    if (!localStorage.getItem("access")) {
+        window.location.replace("/");
+    }
+});
+
+window.onload = async () => {
+    const token = localStorage.getItem("access");
+
+    if (!token) {
+        window.location.replace("/");
+        return;
+    }
 
     try {
+        const response = await fetch("/api/chat/sessions/", {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
 
-        const token =
-            localStorage.getItem("access");
-
-        if (!token) {
-
-            window.location.href =
-                "/login/";
-
+        if (response.status === 401) {
+            logout();
             return;
         }
 
-        // Load existing sessions
+        const sessions = await response.json();
 
-        const response =
-            await fetch(
-                "/api/chat/sessions/",
-                {
-                    method: "GET",
-                    headers: {
-                        "Authorization":
-                            "Bearer " + token
-                    }
-                }
-            );
+        if (!sessions.length) {
+            const createResponse = await fetch("/api/chat/sessions/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    title: "Welcome Chat"
+                })
+            });
 
-        if (!response.ok) {
-
-            console.error(
-                "Failed to load sessions:",
-                response.status
-            );
-
-            return;
+            const newSession = await createResponse.json();
+            currentSessionId = newSession.id;
+        } else {
+            currentSessionId = sessions[0].id;
         }
 
-        const sessions =
-            await response.json();
+        const sessionInfo = document.getElementById("sessionInfo");
 
-        console.log(
-            "Loaded sessions:",
-            sessions
-        );
-
-        // Existing session found
-
-        if (
-            Array.isArray(sessions) &&
-            sessions.length > 0
-        ) {
-
-            currentSessionId =
-                sessions[0].id;
-
-            updateSessionInfo();
-
-            console.log(
-                "Using existing session:",
-                currentSessionId
-            );
+        if (sessionInfo) {
+            sessionInfo.innerText = `Session #${currentSessionId}`;
         }
 
-        // No session exists → create one automatically
-
-        else {
-
-            console.log(
-                "No sessions found. Creating one..."
-            );
-
-            const createResponse =
-                await fetch(
-                    "/api/chat/sessions/",
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                            "Authorization":
-                                "Bearer " + token
-                        },
-                        body: JSON.stringify({
-                            title: "New Chat"
-                        })
-                    }
-                );
-
-            const newSession =
-                await createResponse.json();
-
-            currentSessionId =
-                newSession.id;
-
-            updateSessionInfo();
-
-            console.log(
-                "Created session:",
-                currentSessionId
-            );
-        }
+        console.log("Active Session:", currentSessionId);
 
     } catch (error) {
+        console.error("Session Load Error:", error);
 
-        console.error(
-            "Session Load Error:",
-            error
+        appendMessage(
+            "jarvis",
+            "Unable to load chat session."
         );
     }
 };
 
-
 async function sendMessage() {
+    const input = document.getElementById("messageInput");
+    const message = input.value.trim();
+
+    if (!message) return;
+
+    if (!currentSessionId) {
+        appendMessage(
+            "jarvis",
+            "No active session."
+        );
+        return;
+    }
+
+    appendMessage("user", message);
+    input.value = "";
+
+    const thinkingBubble = showThinkingAnimation();
 
     try {
+        const token = localStorage.getItem("access");
 
-        const input =
-            document.getElementById(
-                "messageInput"
-            );
+        const response = await fetch("/api/chat/prompt/", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                session_id: currentSessionId,
+                message: message
+            })
+        });
 
-        if (!input) {
-
-            console.error(
-                "messageInput not found"
-            );
-
+        if (response.status === 401) {
+            logout();
             return;
         }
 
-        const message =
-            input.value.trim();
+        const data = await response.json();
 
-        if (!message) {
-            return;
-        }
-
-        if (!currentSessionId) {
-
-            appendMessage(
-                "jarvis",
-                "No active session available."
-            );
-
-            return;
-        }
-
-        appendMessage(
-            "user",
-            message
-        );
-
-        input.value = "";
-
-        const token =
-            localStorage.getItem(
-                "access"
-            );
-
-        const response =
-            await fetch(
-                "/api/chat/prompt/",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type":
-                            "application/json",
-                        "Authorization":
-                            "Bearer " + token
-                    },
-                    body: JSON.stringify({
-                        session_id:
-                            currentSessionId,
-                        message:
-                            message
-                    })
-                }
-            );
-
-        console.log(
-            "HTTP Status:",
-            response.status
-        );
-
-        const text =
-            await response.text();
-
-        console.log(
-            "Raw Response:",
-            text
-        );
-
-        let data;
-
-        try {
-
-            data =
-                JSON.parse(text);
-
-        } catch (error) {
-
-            console.error(
-                "JSON Parse Error:",
-                error
-            );
-
-            appendMessage(
-                "jarvis",
-                "Invalid response received from backend."
-            );
-
-            return;
-        }
-
-        console.log(
-            "Prompt Response:",
-            data
-        );
-
-        if (data.detail) {
-
-            appendMessage(
-                "jarvis",
-                "Authentication failed. Please login again."
-            );
-
-            console.error(data);
-
-            return;
-        }
+        thinkingBubble.remove();
 
         appendMessage(
             "jarvis",
-            data.response ||
-            "No response received."
+            data.response || "No response received."
         );
 
     } catch (error) {
+        console.error(error);
 
-        console.error(
-            "SEND ERROR:",
-            error
-        );
+        thinkingBubble.remove();
 
         appendMessage(
             "jarvis",
@@ -253,68 +124,44 @@ async function sendMessage() {
     }
 }
 
-
 function appendMessage(sender, text) {
+    const messages = document.getElementById("messages");
 
-    const messagesDiv =
-        document.getElementById(
-            "messages"
-        );
+    const div = document.createElement("div");
 
-    const messageDiv =
-        document.createElement(
-            "div"
-        );
+    div.className = `message ${sender}`;
+    div.innerText = text;
 
-    messageDiv.classList.add(
-        "message"
-    );
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
 
-    messageDiv.classList.add(
-        sender
-    );
-
-    messageDiv.innerText =
-        text;
-
-    messagesDiv.appendChild(
-        messageDiv
-    );
-
-    messagesDiv.scrollTop =
-        messagesDiv.scrollHeight;
+    return div;
 }
 
+function showThinkingAnimation() {
+    const messages = document.getElementById("messages");
 
-function updateSessionInfo() {
+    const div = document.createElement("div");
 
-    const sessionInfo =
-        document.getElementById(
-            "sessionInfo"
-        );
+    div.className = "message jarvis typing";
 
-    if (
-        sessionInfo &&
-        currentSessionId
-    ) {
+    div.innerHTML = `
+        <span></span>
+        <span></span>
+        <span></span>
+    `;
 
-        sessionInfo.innerText =
-            "Session #" +
-            currentSessionId;
-    }
+    messages.appendChild(div);
+
+    messages.scrollTop = messages.scrollHeight;
+
+    return div;
 }
-
 
 function logout() {
+    localStorage.clear();
+    sessionStorage.clear();
 
-    localStorage.removeItem(
-        "access"
-    );
-
-    localStorage.removeItem(
-        "refresh"
-    );
-
-    window.location.href =
-        "/login/";
+    window.history.pushState(null, "", "/");
+    window.location.replace("/");
 }

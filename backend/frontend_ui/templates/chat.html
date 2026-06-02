@@ -6,6 +6,10 @@
     <title>Jarvis AI</title>
 
     <link rel="stylesheet" href="{% static 'css/chat.css' %}">
+
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
 </head>
 
 <body>
@@ -14,36 +18,39 @@
 
     <div class="top-bar">
 
-        <div>
-            <h2>Jarvis AI</h2>
+        <div class="branding">
+            <h2>🤖 Jarvis AI</h2>
             <small id="sessionInfo"></small>
         </div>
 
-        <button
-            class="logout-btn"
-            onclick="logout()">
+        <button class="logout-btn" onclick="logout()">
             Logout
         </button>
 
     </div>
 
-    <div
-        id="messages"
-        class="messages">
-    </div>
+    <div id="messages" class="messages"></div>
 
-    <div class="input-box">
+    <div class="footer">
 
-        <input
-            id="messageInput"
-            type="text"
-            placeholder="Ask Jarvis anything..."
-            onkeypress="if(event.key==='Enter'){sendMessage()}"
-        />
+        <div class="input-box">
 
-        <button onclick="sendMessage()">
-            Send
-        </button>
+            <input
+                id="messageInput"
+                type="text"
+                placeholder="Message Jarvis..."
+                onkeypress="if(event.key==='Enter'){sendMessage()}"
+            >
+
+            <button onclick="sendMessage()">
+                Send
+            </button>
+
+        </div>
+
+        <div class="footer-text">
+            Jarvis AI • Powered by Ollama + Django
+        </div>
 
     </div>
 

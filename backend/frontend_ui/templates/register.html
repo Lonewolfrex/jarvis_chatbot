@@ -1,0 +1,62 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>Create Account</title>
+
+    <link rel="stylesheet"
+          href="{% static 'css/register.css' %}">
+
+</head>
+
+<body>
+
+<div class="register-container">
+
+    <h1>Jarvis AI</h1>
+
+    <h3>Create Account</h3>
+
+    <input
+        id="username"
+        type="text"
+        placeholder="Username">
+
+    <input
+        id="email"
+        type="email"
+        placeholder="Email">
+
+    <input
+        id="tenant"
+        type="text"
+        placeholder="Tenant Name">
+
+    <input
+        id="password"
+        type="password"
+        placeholder="Password">
+
+    <input
+        id="confirmPassword"
+        type="password"
+        placeholder="Confirm Password">
+
+    <button onclick="register()">
+        Register
+    </button>
+
+    <p id="error"></p>
+
+    <a href="/">
+        Already have an account?
+    </a>
+
+</div>
+
+<script src="{% static 'js/register.js' %}"></script>
+
+</body>
+</html>
