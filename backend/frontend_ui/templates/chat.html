@@ -10,49 +10,81 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js/lib/common.min.js"></script>
+
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/highlight.js/styles/github-dark.min.css">
 </head>
 
 <body>
 
-<div class="chat-wrapper">
+<div class="app-container">
 
-    <div class="top-bar">
+    <aside class="sidebar">
 
-        <div class="branding">
-            <h2>🤖 Jarvis AI</h2>
-            <small id="sessionInfo"></small>
-        </div>
+        <div class="sidebar-header">
 
-        <button class="logout-btn" onclick="logout()">
-            Logout
-        </button>
+            <h2>🤖 Jarvis</h2>
 
-    </div>
-
-    <div id="messages" class="messages"></div>
-
-    <div class="footer">
-
-        <div class="input-box">
-
-            <input
-                id="messageInput"
-                type="text"
-                placeholder="Message Jarvis..."
-                onkeypress="if(event.key==='Enter'){sendMessage()}"
-            >
-
-            <button onclick="sendMessage()">
-                Send
+            <button
+                class="new-chat-btn"
+                onclick="createNewChat()">
+                <span>✨</span>
+                <span>New Chat</span>
             </button>
 
         </div>
 
-        <div class="footer-text">
-            Jarvis AI • Powered by Ollama + Django
+        <div
+            id="sessionsList"
+            class="sessions-list">
         </div>
 
-    </div>
+        <button
+            class="logout-btn"
+            onclick="logout()">
+            🚪 Logout
+        </button>
+
+    </aside>
+
+    <main class="chat-area">
+
+        <div class="chat-header">
+            <span id="sessionInfo">Loading...</span>
+        </div>
+
+        <div
+            id="messages"
+            class="messages">
+        </div>
+
+        <div class="chat-footer">
+
+            <div class="input-box">
+
+                <input
+                    id="messageInput"
+                    type="text"
+                    placeholder="Ask Jarvis anything..."
+                    onkeypress="if(event.key==='Enter'){sendMessage()}">
+
+                <button onclick="sendMessage()">
+                    ➤ Send
+                </button>
+
+            </div>
+
+            <div class="footer">
+                Jarvis AI • Powered by Ollama • Local & Private
+            </div>
+
+        </div>
+
+    </main>
 
 </div>
 
