@@ -68,3 +68,23 @@ button {
 .logout-btn {
     background: red;
 }
+
+.user-msg {
+    background: #2563eb;
+    color: white;
+    padding: 10px;
+    margin: 8px;
+    border-radius: 10px;
+    max-width: 70%;
+    margin-left: auto;
+}
+
+.jarvis-msg {
+    background: #1f2937;
+    color: white;
+    padding: 10px;
+    margin: 8px;
+    border-radius: 10px;
+    max-width: 70%;
+    margin-right: auto;
+}
