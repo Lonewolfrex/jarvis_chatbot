@@ -1,37 +1,132 @@
 {% load static %}
+
 <!DOCTYPE html>
 <html>
-<head>
-    <title>Jarvis Login</title>
 
-    <link rel="stylesheet" href="{% static 'css/chat.css' %}">
+<head>
+
+    <title>Jarvis AI Login</title>
+
+    <link rel="stylesheet"
+          href="{% static 'css/chat.css' %}">
+
 </head>
+
 <body class="center">
 
-<div class="login-box">
-    <h2>Jarvis AI</h2>
+    <div class="login-box">
 
-    <input id="username" placeholder="Username">
-    <input id="password" type="password" placeholder="Password">
+        <div class="logo-area">
+            <h1>🤖 Jarvis AI</h1>
+            <p>Your Personal AI Assistant</p>
+        </div>
 
-    <button onclick="login()">Login</button>
-</div>
+        <input
+            id="username"
+            type="text"
+            placeholder="Username">
+
+        <input
+            id="password"
+            type="password"
+            placeholder="Password">
+
+        <button onclick="login()">
+            Login
+        </button>
+
+        <div id="errorMessage"
+             class="error-message">
+        </div>
+
+        <div class="register-link">
+
+            <span>
+                New User?
+            </span>
+
+            <a href="/register/">
+                Create Account
+            </a>
+
+        </div>
+
+    </div>
 
 <script>
-async function login() {
-    const res = await fetch('/api/login/', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            username: document.getElementById('username').value,
-            password: document.getElementById('password').value
-        })
-    });
 
-    const data = await res.json();
-    localStorage.setItem("access", data.access);
-    window.location.href = "/chat/";
+async function login() {
+
+    const username =
+        document.getElementById(
+            "username"
+        ).value;
+
+    const password =
+        document.getElementById(
+            "password"
+        ).value;
+
+    const errorBox =
+        document.getElementById(
+            "errorMessage"
+        );
+
+    errorBox.innerText = "";
+
+    try {
+
+        const response =
+            await fetch(
+                "/api/login/",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                        "application/json"
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                }
+            );
+
+        const data =
+            await response.json();
+
+        if (!response.ok) {
+
+            errorBox.innerText =
+                "Invalid username or password";
+
+            return;
+        }
+
+        localStorage.setItem(
+            "access",
+            data.access
+        );
+
+        localStorage.setItem(
+            "refresh",
+            data.refresh
+        );
+
+        window.location.href =
+            "/chat/";
+
+    }
+    catch(err) {
+
+        console.error(err);
+
+        errorBox.innerText =
+            "Unable to login.";
+
+    }
 }
+
 </script>
 
 </body>
