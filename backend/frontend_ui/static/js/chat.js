@@ -15,75 +15,156 @@ window.onload = async () => {
     }
 
     try {
-        const response = await fetch("/api/chat/sessions/", {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        });
+        const sessions = await loadSessions();
 
-        if (response.status === 401) {
-            logout();
-            return;
-        }
-
-        const sessions = await response.json();
-
-        if (!sessions.length) {
-            const createResponse = await fetch("/api/chat/sessions/", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    title: "Welcome Chat"
-                })
-            });
-
-            const newSession = await createResponse.json();
-            currentSessionId = newSession.id;
-        } else {
+        if (sessions.length) {
             currentSessionId = sessions[0].id;
+
+            document.getElementById("sessionInfo").innerText =
+                sessions[0].title;
+
+            await loadMessages(currentSessionId);
+        } else {
+            await createNewChat();
         }
-
-        const sessionInfo = document.getElementById("sessionInfo");
-
-        if (sessionInfo) {
-            sessionInfo.innerText = `Session #${currentSessionId}`;
-        }
-
-        console.log("Active Session:", currentSessionId);
 
     } catch (error) {
-        console.error("Session Load Error:", error);
-
-        appendMessage(
-            "jarvis",
-            "Unable to load chat session."
-        );
+        console.error(error);
+        appendMessage("jarvis", "Unable to load chat session.");
     }
 };
 
+async function loadSessions() {
+    const token = localStorage.getItem("access");
+
+    const response = await fetch("/api/chat/sessions/", {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    });
+
+    if (response.status === 401) {
+        logout();
+        return [];
+    }
+
+    const sessions = await response.json();
+
+    const container = document.getElementById("sessionsList");
+
+    container.innerHTML = "";
+
+    sessions.forEach(session => {
+
+        const item = document.createElement("div");
+
+        item.className = "session-item";
+
+        if (session.id === currentSessionId) {
+            item.classList.add("active-session");
+        }
+
+        item.innerText = session.title;
+
+        item.onclick = () => switchSession(session.id);
+
+        container.appendChild(item);
+    });
+
+    return sessions;
+}
+
+async function loadMessages(sessionId) {
+
+    const token = localStorage.getItem("access");
+
+    const response = await fetch(
+        `/api/chat/sessions/${sessionId}/messages/`,
+        {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
+    );
+
+    const messages = await response.json();
+
+    const container = document.getElementById("messages");
+
+    container.innerHTML = "";
+
+    messages.forEach(msg => {
+        appendMessage(
+            msg.role === "assistant" ? "jarvis" : "user",
+            msg.content
+        );
+    });
+}
+
+async function switchSession(sessionId) {
+
+    currentSessionId = sessionId;
+
+    await loadMessages(sessionId);
+
+    const selected = document.querySelector(
+        `.session-item:nth-child(${Array.from(document.querySelectorAll(".session-item"))
+        .findIndex(x => x.onclick.toString().includes(sessionId)) + 1})`
+    );
+
+    if (selected) {
+        document.getElementById("sessionInfo").innerText =
+            selected.innerText;
+    }
+
+    await loadSessions();
+}
+
+async function createNewChat() {
+
+    const token = localStorage.getItem("access");
+
+    const response = await fetch("/api/chat/sessions/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+            title: "New Chat"
+        })
+    });
+
+    const session = await response.json();
+
+    currentSessionId = session.id;
+
+    document.getElementById("messages").innerHTML = "";
+
+    document.getElementById("sessionInfo").innerText =
+        session.title;
+
+    await loadSessions();
+}
+
 async function sendMessage() {
+
     const input = document.getElementById("messageInput");
+
     const message = input.value.trim();
 
-    if (!message) return;
-
-    if (!currentSessionId) {
-        appendMessage(
-            "jarvis",
-            "No active session."
-        );
+    if (!message || !currentSessionId) {
         return;
     }
 
     appendMessage("user", message);
+
     input.value = "";
 
     const thinkingBubble = showThinkingAnimation();
 
     try {
+
         const token = localStorage.getItem("access");
 
         const response = await fetch("/api/chat/prompt/", {
@@ -98,21 +179,18 @@ async function sendMessage() {
             })
         });
 
-        if (response.status === 401) {
-            logout();
-            return;
-        }
-
         const data = await response.json();
 
         thinkingBubble.remove();
 
-        appendMessage(
-            "jarvis",
+        typeJarvisResponse(
             data.response || "No response received."
         );
 
+        await loadSessions();
+
     } catch (error) {
+
         console.error(error);
 
         thinkingBubble.remove();
@@ -125,20 +203,34 @@ async function sendMessage() {
 }
 
 function appendMessage(sender, text) {
+
     const messages = document.getElementById("messages");
 
     const div = document.createElement("div");
 
     div.className = `message ${sender}`;
-    div.innerText = text;
+
+    if (sender === "jarvis") {
+
+        div.innerHTML = marked.parse(text);
+
+        div.querySelectorAll("pre code").forEach(block => {
+            hljs.highlightElement(block);
+        });
+
+    } else {
+        div.textContent = text;
+    }
 
     messages.appendChild(div);
+
     messages.scrollTop = messages.scrollHeight;
 
     return div;
 }
 
 function showThinkingAnimation() {
+
     const messages = document.getElementById("messages");
 
     const div = document.createElement("div");
@@ -158,10 +250,46 @@ function showThinkingAnimation() {
     return div;
 }
 
+function typeJarvisResponse(text) {
+
+    const messages = document.getElementById("messages");
+
+    const div = document.createElement("div");
+
+    div.className = "message jarvis";
+
+    messages.appendChild(div);
+
+    let index = 0;
+
+    const interval = setInterval(() => {
+
+        div.textContent += text.charAt(index);
+
+        messages.scrollTop = messages.scrollHeight;
+
+        index++;
+
+        if (index >= text.length) {
+
+            clearInterval(interval);
+
+            div.innerHTML = marked.parse(text);
+
+            div.querySelectorAll("pre code").forEach(block => {
+                hljs.highlightElement(block);
+            });
+        }
+
+    }, 12);
+}
+
 function logout() {
+
     localStorage.clear();
     sessionStorage.clear();
 
     window.history.pushState(null, "", "/");
+
     window.location.replace("/");
 }
