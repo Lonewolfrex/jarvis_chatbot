@@ -238,6 +238,24 @@ body {
     gap: 14px;
 }
 
+.message-actions{
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:6px;
+}
+
+.message-actions button{
+    background:none;
+    border:none;
+    color:#9ca3af;
+    cursor:pointer;
+    font-size:14px;
+}
+
+.message-actions button:hover{
+    color:#fff;
+}
+
 /* ==========================
    MESSAGE BUBBLES
 ========================== */

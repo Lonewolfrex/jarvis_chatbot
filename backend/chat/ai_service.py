@@ -27,3 +27,34 @@ class OllamaService:
         response.raise_for_status()
 
         return response.json()["response"]
+
+    @staticmethod
+    def generate_title(message):
+
+        prompt = f"""
+            Create a short chat title.
+
+            Rules:
+            - max 6 words
+            - no punctuation
+            - no quotes
+
+            Message:
+            {message}
+            """
+
+        return OllamaService.generate_response(prompt)
+
+    @staticmethod
+    def generate_stream(prompt):
+
+        import ollama
+
+        stream = ollama.generate(
+            model="llama3",
+            prompt=prompt,
+            stream=True
+        )
+
+        for chunk in stream:
+            yield chunk["response"]

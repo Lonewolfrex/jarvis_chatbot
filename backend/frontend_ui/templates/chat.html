@@ -76,7 +76,9 @@
                     placeholder="Ask Jarvis anything..."
                     onkeypress="if(event.key==='Enter'){sendMessage()}">
 
-                <button onclick="sendMessage()">
+                <button
+                    id="sendButton"
+                    onclick="sendMessage()">
                     ➤ Send
                 </button>
 
