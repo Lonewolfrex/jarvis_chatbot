@@ -1,6 +1,6 @@
 import os
 import requests
-
+import json
 
 class OllamaService:
 
@@ -48,13 +48,37 @@ class OllamaService:
     @staticmethod
     def generate_stream(prompt):
 
-        import ollama
-
-        stream = ollama.generate(
-            model="llama3",
-            prompt=prompt,
-            stream=True
+        base_url = os.getenv(
+            "OLLAMA_BASE_URL",
+            "http://host.docker.internal:11434"
         )
 
-        for chunk in stream:
-            yield chunk["response"]
+        response = requests.post(
+            f"{base_url}/api/generate",
+            json={
+                "model": OllamaService.MODEL,
+                "prompt": prompt,
+                "stream": True
+            },
+            stream=True,
+            timeout=300
+        )
+
+        response.raise_for_status()
+
+        for line in response.iter_lines():
+
+            if not line:
+                continue
+
+            try:
+
+                data = json.loads(
+                    line.decode("utf-8")
+                )
+
+                if "response" in data:
+                    yield data["response"]
+
+            except Exception:
+                continue

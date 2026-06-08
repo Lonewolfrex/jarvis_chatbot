@@ -245,11 +245,12 @@ async function createNewChat(){
 async function sendMessage(){
 
     generationStopped=false;
+
     const input=document.getElementById("messageInput");
 
     const message=input.value.trim();
 
-    if(!message||!currentSessionId){
+    if(!message || !currentSessionId){
         return;
     }
 
@@ -261,17 +262,9 @@ async function sendMessage(){
 
     try{
 
-        const token=await getAccessToken();
-
-        const response=await streamMessage(message);
-
-        const data=await response.json();
-
         thinkingBubble.remove();
 
-        typeJarvisResponse(
-            data.response || "No response received."
-        );
+        await streamMessage(message);
 
         await loadSessions();
 
