@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from django.http import StreamingHttpResponse
 
 from .models import ChatSession, ChatMessage
 from .serializers import (
@@ -42,7 +43,6 @@ class ChatSessionView(APIView):
             ChatSessionSerializer(session).data
         )
 
-
 # 2. Get Messages in a Session
 class ChatMessageView(APIView):
 
@@ -62,7 +62,6 @@ class ChatMessageView(APIView):
             ).data
         )
 
-
 # 3. Send Message (TEMP: dummy AI response)
 class ChatPromptView(APIView):
 
@@ -81,8 +80,16 @@ class ChatPromptView(APIView):
             )
 
             if session.title == "New Chat":
-                session.title = user_message[:40]
-                session.save()
+
+                title = OllamaService.generate_title(
+                    user_message
+                )
+
+                session.title = title[:60]
+
+                session.save(
+                    update_fields=["title"]
+                )
 
             ChatMessage.objects.create(
                 session=session,
@@ -171,3 +178,94 @@ class ChatSessionDetailView(APIView):
         return Response({
             "status": "deleted"
         })
+
+class RegenerateResponseView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+
+        session_id = request.data.get("session_id")
+
+        session = ChatSession.objects.get(
+            id=session_id,
+            user=request.user
+        )
+
+        last_user = ChatMessage.objects.filter(
+            session=session,
+            role="user"
+        ).order_by("-created_at").first()
+
+        if not last_user:
+            return Response(
+                {"error": "No user message found"},
+                status=400
+            )
+
+        from .ai_service import OllamaService
+
+        ai_response = OllamaService.generate_response(
+            last_user.content
+        )
+
+        ChatMessage.objects.create(
+            session=session,
+            role="assistant",
+            content=ai_response
+        )
+
+        return Response({
+            "response": ai_response
+        })
+
+class StreamPromptView(APIView):
+
+    permission_classes=[IsAuthenticated]
+
+    def post(self,request):
+
+        session_id=request.data.get(
+            "session_id"
+        )
+
+        message=request.data.get(
+            "message"
+        )
+
+        session=ChatSession.objects.get(
+            id=session_id,
+            user=request.user
+        )
+
+        ChatMessage.objects.create(
+            session=session,
+            role="user",
+            content=message
+        )
+
+        from .ai_service import OllamaService
+
+        def generate():
+
+            full_response=""
+
+            for chunk in OllamaService.generate_stream(
+                message
+            ):
+
+                full_response+=chunk
+
+                yield chunk
+
+            ChatMessage.objects.create(
+                session=session,
+                role="assistant",
+                content=full_response
+            )
+
+        return StreamingHttpResponse(
+            generate(),
+            content_type="text/plain"
+        )
+

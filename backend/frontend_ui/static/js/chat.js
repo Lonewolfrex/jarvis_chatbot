@@ -1,5 +1,6 @@
 let currentSessionId=null;
 let sessionsCache=[];
+let generationStopped=false;
 
 async function refreshAccessToken(){
     const refresh=localStorage.getItem("refresh");
@@ -243,6 +244,7 @@ async function createNewChat(){
 
 async function sendMessage(){
 
+    generationStopped=false;
     const input=document.getElementById("messageInput");
 
     const message=input.value.trim();
@@ -261,17 +263,7 @@ async function sendMessage(){
 
         const token=await getAccessToken();
 
-        const response=await fetch("/api/chat/prompt/",{
-            method:"POST",
-            headers:{
-                "Content-Type":"application/json",
-                Authorization:`Bearer ${token}`
-            },
-            body:JSON.stringify({
-                session_id:currentSessionId,
-                message
-            })
-        });
+        const response=await streamMessage(message);
 
         const data=await response.json();
 
@@ -306,7 +298,17 @@ function appendMessage(sender,text){
 
     if(sender==="jarvis"){
 
-        div.innerHTML=marked.parse(text);
+        div.innerHTML=`
+            <div class="message-actions">
+                <button onclick="copyMessage(this)">
+                    📋
+                </button>
+                <button onclick="regenerateResponse()">
+                    🔄
+                </button>
+            </div>
+            ${marked.parse(text)}
+            `;
 
         if(window.hljs){
             div.querySelectorAll("pre code")
@@ -328,9 +330,11 @@ function appendMessage(sender,text){
 
 function typeJarvisResponse(text){
 
-    const messages=document.getElementById("messages");
+    const messages=
+        document.getElementById("messages");
 
-    const div=document.createElement("div");
+    const div=
+        document.createElement("div");
 
     div.className="message jarvis";
 
@@ -340,27 +344,37 @@ function typeJarvisResponse(text){
 
     const timer=setInterval(()=>{
 
-        div.textContent+=text.charAt(index);
-
-        messages.scrollTop=messages.scrollHeight;
+        div.textContent+=text[index];
 
         index++;
 
-        if(index>=text.length){
+        if(generationStopped || index>=text.length){
 
             clearInterval(timer);
 
-            div.innerHTML=marked.parse(text);
+            div.innerHTML=
+                marked.parse(text);
 
             if(window.hljs){
-                div.querySelectorAll("pre code")
-                .forEach(block=>{
-                    hljs.highlightElement(block);
+
+                div.querySelectorAll(
+                    "pre code"
+                ).forEach(block=>{
+
+                    hljs.highlightElement(
+                        block
+                    );
+
                 });
             }
         }
 
-    },10);
+        requestAnimationFrame(()=>{
+            messages.scrollTop=
+                messages.scrollHeight;
+        });
+
+    },8);
 }
 
 function showThinkingAnimation(){
@@ -517,3 +531,147 @@ document.addEventListener(
         );
     }
 );
+
+function copyMessage(button){
+
+    const text=
+        button.parentElement
+        .parentElement
+        .innerText;
+
+    navigator.clipboard.writeText(
+        text
+    );
+}
+
+async function regenerateResponse(){
+
+    if(!currentSessionId){
+        return;
+    }
+
+    const thinkingBubble=
+        showThinkingAnimation();
+
+    try{
+
+        const token=
+            await getAccessToken();
+
+        const response=
+            await fetch(
+                "/api/chat/regenerate/",
+                {
+                    method:"POST",
+                    headers:{
+                        "Content-Type":"application/json",
+                        Authorization:`Bearer ${token}`
+                    },
+                    body:JSON.stringify({
+                        session_id:currentSessionId
+                    })
+                }
+            );
+
+        const data=
+            await response.json();
+
+        thinkingBubble.remove();
+
+        typeJarvisResponse(
+            data.response
+        );
+
+    }catch(err){
+
+        thinkingBubble.remove();
+
+        appendMessage(
+            "jarvis",
+            "Failed to regenerate response."
+        );
+    }
+}
+
+function stopGeneration(){
+
+    generationStopped=true;
+
+    const btn=
+        document.getElementById(
+            "sendButton"
+        ).innerHTML="■ Stop";
+
+        document.getElementById(
+            "sendButton"
+        ).onclick=stopGeneration;
+
+    btn.innerHTML="➤ Send";
+
+    btn.onclick=sendMessage;
+}
+
+async function streamMessage(message){
+
+    const token=
+        await getAccessToken();
+
+    const response=
+        await fetch(
+            "/api/chat/stream/",
+            {
+                method:"POST",
+                headers:{
+                    "Content-Type":"application/json",
+                    Authorization:`Bearer ${token}`
+                },
+                body:JSON.stringify({
+                    session_id:currentSessionId,
+                    message:message
+                })
+            }
+        );
+
+    const reader=
+        response.body.getReader();
+
+    const decoder=
+        new TextDecoder();
+
+    const div=
+        appendMessage(
+            "jarvis",
+            ""
+        );
+
+    let fullText="";
+
+    while(true){
+
+        const {
+            done,
+            value
+        }=
+        await reader.read();
+
+        if(done){
+            break;
+        }
+
+        const chunk=
+            decoder.decode(value);
+
+        fullText+=chunk;
+
+        div.innerHTML=
+            marked.parse(fullText);
+
+        document
+            .getElementById("messages")
+            .scrollTop=
+            document
+            .getElementById("messages")
+            .scrollHeight;
+    }
+}
+
