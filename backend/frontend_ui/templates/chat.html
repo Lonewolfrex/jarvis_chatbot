@@ -12,7 +12,7 @@
     <meta http-equiv="Expires" content="0">
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/highlight.js/lib/common.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.11.1/highlight.min.js"></script>
 
     <link
         rel="stylesheet"
@@ -35,13 +35,17 @@
                 <span>✨</span>
                 <span>New Chat</span>
             </button>
+            <div class="sidebar-search">
+                <input
+                    type="text"
+                    id="chatSearch"
+                    placeholder="Search chats..."
+                    onkeyup="filterChats()">
+            </div>
 
         </div>
 
-        <div
-            id="sessionsList"
-            class="sessions-list">
-        </div>
+        <div id="sessionsList" class="sessions-list"></div>
 
         <button
             class="logout-btn"

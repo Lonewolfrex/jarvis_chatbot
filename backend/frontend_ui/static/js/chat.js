@@ -1,72 +1,170 @@
-let currentSessionId = null;
+let currentSessionId=null;
+let sessionsCache=[];
 
-window.addEventListener("pageshow", () => {
-    if (!localStorage.getItem("access")) {
+async function refreshAccessToken(){
+    const refresh=localStorage.getItem("refresh");
+
+    if(!refresh){
+        logout();
+        return null;
+    }
+
+    try{
+        const response=await fetch("/api/refresh/",{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify({refresh})
+        });
+
+        if(!response.ok){
+            logout();
+            return null;
+        }
+
+        const data=await response.json();
+
+        localStorage.setItem("access",data.access);
+
+        return data.access;
+
+    }catch{
+        logout();
+        return null;
+    }
+}
+
+async function getAccessToken(){
+    let token=localStorage.getItem("access");
+
+    if(!token){
+        token=await refreshAccessToken();
+    }
+
+    return token;
+}
+
+window.addEventListener("pageshow",()=>{
+    if(!localStorage.getItem("access")){
         window.location.replace("/");
     }
 });
 
-window.onload = async () => {
-    const token = localStorage.getItem("access");
+window.onload=async()=>{
+    try{
+        const token=await getAccessToken();
 
-    if (!token) {
-        window.location.replace("/");
-        return;
-    }
+        if(!token){
+            window.location.replace("/");
+            return;
+        }
 
-    try {
-        const sessions = await loadSessions();
+        const sessions=await loadSessions();
 
-        if (sessions.length) {
-            currentSessionId = sessions[0].id;
+        if(sessions.length){
+            currentSessionId=sessions[0].id;
 
-            document.getElementById("sessionInfo").innerText =
+            document.getElementById("sessionInfo").innerText=
                 sessions[0].title;
 
             await loadMessages(currentSessionId);
-        } else {
+        }else{
             await createNewChat();
         }
 
-    } catch (error) {
+    }catch(error){
         console.error(error);
-        appendMessage("jarvis", "Unable to load chat session.");
+        appendMessage("jarvis","Unable to load chat session.");
     }
 };
 
-async function loadSessions() {
-    const token = localStorage.getItem("access");
+async function loadSessions(){
 
-    const response = await fetch("/api/chat/sessions/", {
-        headers: {
-            Authorization: `Bearer ${token}`
+    const token=await getAccessToken();
+
+    const response=await fetch("/api/chat/sessions/",{
+        headers:{
+            Authorization:`Bearer ${token}`
         }
     });
 
-    if (response.status === 401) {
+    if(response.status===401){
         logout();
         return [];
     }
 
-    const sessions = await response.json();
+    const sessions=await response.json();
 
-    const container = document.getElementById("sessionsList");
+    sessionsCache=sessions;
 
-    container.innerHTML = "";
+    const container=document.getElementById("sessionsList");
 
-    sessions.forEach(session => {
+    container.innerHTML="";
 
-        const item = document.createElement("div");
+    sessions.forEach(session=>{
 
-        item.className = "session-item";
+        const item=document.createElement("div");
 
-        if (session.id === currentSessionId) {
-            item.classList.add("active-session");
-        }
+        item.className=
+            `session-item ${
+                session.id===currentSessionId
+                ?"active-session"
+                :""
+            }`;
 
-        item.innerText = session.title;
+        item.innerHTML=`
+        <div class="session-title">
+            ${session.title}
+        </div>
 
-        item.onclick = () => switchSession(session.id);
+        <div class="session-menu-btn">
+            ⋮
+        </div>
+
+        <div class="session-dropdown">
+            <div class="rename-action">
+                ✏ Rename
+            </div>
+
+            <div class="delete-action">
+                🗑 Delete
+            </div>
+        </div>
+        `;
+
+        item.querySelector(".session-title")
+            .onclick=()=>switchSession(session.id, session.title);
+
+        item.querySelector(".session-menu-btn")
+            .onclick=(e)=>{
+                e.stopPropagation();
+
+                document
+                .querySelectorAll(".session-dropdown")
+                .forEach(d=>{
+
+                    if(
+                        d!==item.querySelector(".session-dropdown")
+                    ){
+                        d.style.display="none";
+                    }
+                });
+
+                const dropdown=
+                    item.querySelector(".session-dropdown");
+
+                dropdown.style.display=
+                    dropdown.style.display==="block"
+                    ?"none"
+                    :"block";
+            };
+
+        item.querySelector(".rename-action")
+            .onclick=()=>renameChat(session.id);
+
+        item.querySelector(".delete-action")
+            .onclick=()=>deleteChat(session.id);
 
         container.appendChild(item);
     });
@@ -74,112 +172,108 @@ async function loadSessions() {
     return sessions;
 }
 
-async function loadMessages(sessionId) {
+async function loadMessages(sessionId){
 
-    const token = localStorage.getItem("access");
+    const token=await getAccessToken();
 
-    const response = await fetch(
+    const response=await fetch(
         `/api/chat/sessions/${sessionId}/messages/`,
         {
-            headers: {
-                Authorization: `Bearer ${token}`
+            headers:{
+                Authorization:`Bearer ${token}`
             }
         }
     );
 
-    const messages = await response.json();
+    const messages=await response.json();
 
-    const container = document.getElementById("messages");
+    const container=document.getElementById("messages");
 
-    container.innerHTML = "";
+    container.innerHTML="";
 
-    messages.forEach(msg => {
+    messages.forEach(msg=>{
         appendMessage(
-            msg.role === "assistant" ? "jarvis" : "user",
+            msg.role==="assistant"
+                ? "jarvis"
+                : "user",
             msg.content
         );
     });
 }
 
-async function switchSession(sessionId) {
+async function switchSession(sessionId,title){
 
-    currentSessionId = sessionId;
+    currentSessionId=sessionId;
+
+    document.getElementById("sessionInfo")
+        .innerText=title;
 
     await loadMessages(sessionId);
 
-    const selected = document.querySelector(
-        `.session-item:nth-child(${Array.from(document.querySelectorAll(".session-item"))
-        .findIndex(x => x.onclick.toString().includes(sessionId)) + 1})`
-    );
-
-    if (selected) {
-        document.getElementById("sessionInfo").innerText =
-            selected.innerText;
-    }
-
     await loadSessions();
 }
 
-async function createNewChat() {
+async function createNewChat(){
 
-    const token = localStorage.getItem("access");
+    const token=await getAccessToken();
 
-    const response = await fetch("/api/chat/sessions/", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
+    const response=await fetch("/api/chat/sessions/",{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json",
+            Authorization:`Bearer ${token}`
         },
-        body: JSON.stringify({
-            title: "New Chat"
+        body:JSON.stringify({
+            title:"New Chat"
         })
     });
 
-    const session = await response.json();
+    const session=await response.json();
 
-    currentSessionId = session.id;
+    currentSessionId=session.id;
 
-    document.getElementById("messages").innerHTML = "";
+    document.getElementById("messages")
+        .innerHTML="";
 
-    document.getElementById("sessionInfo").innerText =
-        session.title;
+    document.getElementById("sessionInfo")
+        .innerText=session.title;
 
     await loadSessions();
 }
 
-async function sendMessage() {
+async function sendMessage(){
 
-    const input = document.getElementById("messageInput");
+    const input=document.getElementById("messageInput");
 
-    const message = input.value.trim();
+    const message=input.value.trim();
 
-    if (!message || !currentSessionId) {
+    if(!message||!currentSessionId){
         return;
     }
 
-    appendMessage("user", message);
+    appendMessage("user",message);
 
-    input.value = "";
+    input.value="";
 
-    const thinkingBubble = showThinkingAnimation();
+    const thinkingBubble=showThinkingAnimation();
 
-    try {
+    try{
 
-        const token = localStorage.getItem("access");
+        const token=await getAccessToken();
 
-        const response = await fetch("/api/chat/prompt/", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`
+        const response=await fetch("/api/chat/prompt/",{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                Authorization:`Bearer ${token}`
             },
-            body: JSON.stringify({
-                session_id: currentSessionId,
-                message: message
+            body:JSON.stringify({
+                session_id:currentSessionId,
+                message
             })
         });
 
-        const data = await response.json();
+        const data=await response.json();
 
         thinkingBubble.remove();
 
@@ -189,7 +283,7 @@ async function sendMessage() {
 
         await loadSessions();
 
-    } catch (error) {
+    }catch(error){
 
         console.error(error);
 
@@ -202,42 +296,82 @@ async function sendMessage() {
     }
 }
 
-function appendMessage(sender, text) {
+function appendMessage(sender,text){
 
-    const messages = document.getElementById("messages");
+    const messages=document.getElementById("messages");
 
-    const div = document.createElement("div");
+    const div=document.createElement("div");
 
-    div.className = `message ${sender}`;
+    div.className=`message ${sender}`;
 
-    if (sender === "jarvis") {
+    if(sender==="jarvis"){
 
-        div.innerHTML = marked.parse(text);
+        div.innerHTML=marked.parse(text);
 
-        div.querySelectorAll("pre code").forEach(block => {
-            hljs.highlightElement(block);
-        });
+        if(window.hljs){
+            div.querySelectorAll("pre code")
+            .forEach(block=>{
+                hljs.highlightElement(block);
+            });
+        }
 
-    } else {
-        div.textContent = text;
+    }else{
+        div.textContent=text;
     }
 
     messages.appendChild(div);
 
-    messages.scrollTop = messages.scrollHeight;
+    messages.scrollTop=messages.scrollHeight;
 
     return div;
 }
 
-function showThinkingAnimation() {
+function typeJarvisResponse(text){
 
-    const messages = document.getElementById("messages");
+    const messages=document.getElementById("messages");
 
-    const div = document.createElement("div");
+    const div=document.createElement("div");
 
-    div.className = "message jarvis typing";
+    div.className="message jarvis";
 
-    div.innerHTML = `
+    messages.appendChild(div);
+
+    let index=0;
+
+    const timer=setInterval(()=>{
+
+        div.textContent+=text.charAt(index);
+
+        messages.scrollTop=messages.scrollHeight;
+
+        index++;
+
+        if(index>=text.length){
+
+            clearInterval(timer);
+
+            div.innerHTML=marked.parse(text);
+
+            if(window.hljs){
+                div.querySelectorAll("pre code")
+                .forEach(block=>{
+                    hljs.highlightElement(block);
+                });
+            }
+        }
+
+    },10);
+}
+
+function showThinkingAnimation(){
+
+    const messages=document.getElementById("messages");
+
+    const div=document.createElement("div");
+
+    div.className="message jarvis typing";
+
+    div.innerHTML=`
         <span></span>
         <span></span>
         <span></span>
@@ -245,51 +379,141 @@ function showThinkingAnimation() {
 
     messages.appendChild(div);
 
-    messages.scrollTop = messages.scrollHeight;
+    messages.scrollTop=messages.scrollHeight;
 
     return div;
 }
 
-function typeJarvisResponse(text) {
+function filterChats(){
 
-    const messages = document.getElementById("messages");
+    const value=
+        document
+        .getElementById("chatSearch")
+        .value
+        .toLowerCase();
 
-    const div = document.createElement("div");
+    document
+    .querySelectorAll(".session-item")
+    .forEach(chat=>{
 
-    div.className = "message jarvis";
+        const title=
+            chat
+            .querySelector(".session-title")
+            .innerText
+            .toLowerCase();
 
-    messages.appendChild(div);
-
-    let index = 0;
-
-    const interval = setInterval(() => {
-
-        div.textContent += text.charAt(index);
-
-        messages.scrollTop = messages.scrollHeight;
-
-        index++;
-
-        if (index >= text.length) {
-
-            clearInterval(interval);
-
-            div.innerHTML = marked.parse(text);
-
-            div.querySelectorAll("pre code").forEach(block => {
-                hljs.highlightElement(block);
-            });
-        }
-
-    }, 12);
+        chat.style.display=
+            title.includes(value)
+            ?"flex"
+            :"none";
+    });
 }
 
-function logout() {
+function toggleSessionMenu(event){
+
+    event.stopPropagation();
+
+    document.querySelectorAll(".session-dropdown")
+        .forEach(menu=>{
+            menu.style.display="none";
+        });
+
+    const menu=
+        event.currentTarget
+            .querySelector(".session-dropdown");
+
+    menu.style.display="block";
+}
+
+async function renameChat(sessionId){
+
+    const title=prompt(
+        "Rename chat"
+    );
+
+    if(!title)return;
+
+    const token=await getAccessToken();
+
+    await fetch(
+        `/api/chat/sessions/${sessionId}/`,
+        {
+            method:"PATCH",
+            headers:{
+                "Content-Type":"application/json",
+                Authorization:`Bearer ${token}`
+            },
+            body:JSON.stringify({
+                title:title
+            })
+        }
+    );
+
+    await loadSessions();
+}
+
+async function deleteChat(sessionId){
+
+    if(
+        !confirm(
+            "Delete this chat?"
+        )
+    ){
+        return;
+    }
+
+    const token=
+        await getAccessToken();
+
+    await fetch(
+        `/api/chat/sessions/${sessionId}/`,
+        {
+            method:"DELETE",
+            headers:{
+                Authorization:
+                `Bearer ${token}`
+            }
+        }
+    );
+
+    if(currentSessionId===sessionId){
+
+        currentSessionId=null;
+
+        document
+            .getElementById(
+                "messages"
+            )
+            .innerHTML="";
+    }
+
+    await loadSessions();
+}
+
+function escapeHtml(text){
+
+    const div=document.createElement("div");
+
+    div.textContent=text;
+
+    return div.innerHTML;
+}
+
+function logout(){
 
     localStorage.clear();
     sessionStorage.clear();
 
-    window.history.pushState(null, "", "/");
-
     window.location.replace("/");
 }
+
+document.addEventListener(
+    "click",
+    ()=>{
+        document
+        .querySelectorAll(".session-dropdown")
+        .forEach(
+            d=>d.style.display="none"
+        );
+    }
+);
