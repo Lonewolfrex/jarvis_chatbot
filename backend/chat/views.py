@@ -8,6 +8,7 @@ from .serializers import (
     ChatMessageSerializer
 )
 
+import traceback
 
 # 1. Create & List Sessions
 class ChatSessionView(APIView):
@@ -18,7 +19,7 @@ class ChatSessionView(APIView):
 
         sessions = ChatSession.objects.filter(
             user=request.user
-        )
+        ).order_by("-updated_at")
 
         serializer = ChatSessionSerializer(
             sessions,
@@ -69,32 +70,104 @@ class ChatPromptView(APIView):
 
     def post(self, request):
 
-        session_id = request.data.get("session_id")
-        user_message = request.data.get("message")
+        try:
+
+            session_id = request.data.get("session_id")
+            user_message = request.data.get("message")
+
+            session = ChatSession.objects.get(
+                id=session_id,
+                user=request.user
+            )
+
+            if session.title == "New Chat":
+                session.title = user_message[:40]
+                session.save()
+
+            ChatMessage.objects.create(
+                session=session,
+                role="user",
+                content=user_message
+            )
+
+            history = ChatMessage.objects.filter(
+                session=session
+            ).order_by("-created_at")[:10]
+
+            history = reversed(history)
+
+            prompt = ""
+
+            for msg in history:
+
+                if msg.role == "user":
+                    prompt += f"User: {msg.content}\n"
+
+                else:
+                    prompt += f"Assistant: {msg.content}\n"
+
+            prompt += f"\nUser: {user_message}\nAssistant:"
+
+            from .ai_service import OllamaService
+
+            ai_response = OllamaService.generate_response(
+                prompt
+            )
+
+            ChatMessage.objects.create(
+                session=session,
+                role="assistant",
+                content=ai_response
+            )
+
+            return Response({
+                "session_id": session.id,
+                "response": ai_response
+            })
+
+        except Exception as e:
+
+            print("=" * 80)
+            print("CHAT ERROR")
+            print(traceback.format_exc())
+            print("=" * 80)
+
+            return Response(
+                {"error": str(e)},
+                status=500
+            )
+
+class ChatSessionDetailView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, session_id):
 
         session = ChatSession.objects.get(
             id=session_id,
             user=request.user
         )
 
-        # Save user message
-        ChatMessage.objects.create(
-            session=session,
-            role="user",
-            content=user_message
+        session.title = request.data.get(
+            "title",
+            session.title
         )
 
-        # Dummy AI (will be replaced with Ollama soon)
-        from .ai_service import OllamaService
-        ai_response = OllamaService.generate_response(user_message)
-
-        ChatMessage.objects.create(
-            session=session,
-            role="assistant",
-            content=ai_response
-        )
+        session.save()
 
         return Response({
-            "session_id": session.id,
-            "response": ai_response
+            "status": "updated"
+        })
+
+    def delete(self, request, session_id):
+
+        session = ChatSession.objects.get(
+            id=session_id,
+            user=request.user
+        )
+
+        session.delete()
+
+        return Response({
+            "status": "deleted"
         })

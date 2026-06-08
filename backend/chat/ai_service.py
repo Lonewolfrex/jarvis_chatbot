@@ -1,5 +1,5 @@
-import requests
 import os
+import requests
 
 
 class OllamaService:
@@ -7,28 +7,23 @@ class OllamaService:
     MODEL = "llama3.1:8b"
 
     @staticmethod
-    def generate_response(prompt: str):
+    def generate_response(prompt):
 
         base_url = os.getenv(
             "OLLAMA_BASE_URL",
-            "http://172.17.0.1:11434"
+            "http://host.docker.internal:11434"
         )
 
-        url = f"{base_url}/api/generate"
+        response = requests.post(
+            f"{base_url}/api/generate",
+            json={
+                "model": OllamaService.MODEL,
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=120
+        )
 
-        payload = {
-            "model": OllamaService.MODEL,
-            "prompt": prompt,
-            "stream": False
-        }
+        response.raise_for_status()
 
-        try:
-            response = requests.post(url, json=payload, timeout=60)
-
-            if response.status_code != 200:
-                return f"AI service error: {response.text}"
-
-            return response.json().get("response", "")
-
-        except requests.exceptions.RequestException as e:
-            return f"AI connection failed: {str(e)}"
+        return response.json()["response"]
