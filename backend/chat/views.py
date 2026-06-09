@@ -8,10 +8,8 @@ from .serializers import (
     ChatSessionSerializer,
     ChatMessageSerializer
 )
-
 import traceback
 
-# 1. Create & List Sessions
 class ChatSessionView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -43,7 +41,6 @@ class ChatSessionView(APIView):
             ChatSessionSerializer(session).data
         )
 
-# 2. Get Messages in a Session
 class ChatMessageView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -62,7 +59,6 @@ class ChatMessageView(APIView):
             ).data
         )
 
-# 3. Send Message (TEMP: dummy AI response)
 class ChatPromptView(APIView):
 
     permission_classes = [IsAuthenticated]
@@ -220,18 +216,10 @@ class RegenerateResponseView(APIView):
         })
 
 class StreamPromptView(APIView):
-
-    permission_classes=[IsAuthenticated]
-
     def post(self,request):
 
-        session_id=request.data.get(
-            "session_id"
-        )
-
-        message=request.data.get(
-            "message"
-        )
+        session_id=request.data.get("session_id")
+        message=request.data.get("message")
 
         session=ChatSession.objects.get(
             id=session_id,
@@ -244,14 +232,48 @@ class StreamPromptView(APIView):
             content=message
         )
 
+        history=ChatMessage.objects.filter(session=session).order_by("-created_at")[:40]
+
+        history=reversed(history)
+
+        messages=[]
+
+        messages.append({
+            "role":"system",
+            "content":"""
+                You are Jarvis.
+
+                You are a professional AI assistant.
+
+                You must remember previous conversation messages.
+
+                When user refers to:
+                - previous answers
+                - previous code
+                - previous poems
+                - previous discussions
+
+                always use the conversation history provided.
+
+                Maintain continuity naturally.
+            """
+        })
+
+        for msg in history:
+
+            messages.append({
+                "role":msg.role,
+                "content":msg.content
+            })
+
         from .ai_service import OllamaService
 
         def generate():
 
             full_response=""
 
-            for chunk in OllamaService.generate_stream(
-                message
+            for chunk in OllamaService.generate_chat_stream(
+                messages
             ):
 
                 full_response+=chunk
@@ -268,4 +290,3 @@ class StreamPromptView(APIView):
             generate(),
             content_type="text/plain"
         )
-

@@ -257,6 +257,7 @@ async function sendMessage(){
     appendMessage("user",message);
 
     input.value="";
+    input.style.height="52px";
 
     const thinkingBubble=showThinkingAnimation();
 
@@ -668,3 +669,18 @@ async function streamMessage(message){
     }
 }
 
+const messageInput=document.getElementById("messageInput");
+
+messageInput.addEventListener("keydown",async function(e){
+        if(e.key==="Enter" && !e.shiftKey){
+            e.preventDefault();
+            await sendMessage();
+        }
+    }
+);
+
+messageInput.addEventListener("input", function(){
+        this.style.height="auto";
+        this.style.height=this.scrollHeight+"px";
+    }
+);

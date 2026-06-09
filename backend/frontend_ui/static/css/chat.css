@@ -300,21 +300,27 @@ body {
     padding: 20px 20px 12px;
 }
 
-.input-box {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+.input-box{
+    display:flex;
+    align-items:flex-end;
+    gap:12px;
 }
 
-.input-box input {
-    flex: 1;
-    height: 58px;
-    border: none;
-    border-radius: 14px;
-    padding: 0 18px;
-    font-size: 15px;
-    background: #1f2937;
-    color: white;
+.message-input{
+    flex:1;
+    min-height:52px;
+    max-height:220px;
+    resize:none;
+    border:none;
+    outline:none;
+    border-radius:14px;
+    padding:14px 18px;
+    background:#1f2937;
+    color:#fff;
+    font-size:15px;
+    line-height:1.5;
+    overflow-y:auto;
+    font-family:inherit;
 }
 
 .input-box input:focus {
