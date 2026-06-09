@@ -1,4 +1,4 @@
-name: Jarvis CI
+name: Jarvis Security CI
 
 on:
 
@@ -11,47 +11,104 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
 jobs:
 
-  security-and-build:
+  security-scan:
 
     runs-on: ubuntu-latest
 
+    env:
+      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+
     steps:
 
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
 
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
 
-          if [ -f backend/requirements.txt ]; then
-            pip install -r backend/requirements.txt
-          fi
+        pip install -r backend/requirements.txt
 
-      - name: Install Security Tools
-        run: |
-          pip install bandit
-          pip install pip-audit
-
-      - name: Django Security Check
-        run: |
-          python backend/manage.py check
-
-      - name: Django Deploy Check
-        run: |
-          python backend/manage.py check --deploy
-
-      - name: Bandit Scan
-        run: |
-          bandit -r backend -c .bandit
-
-      - name: Dependency Audit
-        run: |
+        pip install \
+          bandit \
           pip-audit
+
+    #################################################
+    # DJANGO
+    #################################################
+
+    - name: Django Check
+      run: |
+        cd backend
+        python manage.py check
+
+    - name: Django Deploy Check
+      run: |
+        cd backend
+        python manage.py check --deploy
+
+    #################################################
+    # BANDIT
+    #################################################
+
+    - name: Run Bandit
+      run: |
+        bandit \
+          -r backend \
+          -f sarif \
+          -o bandit-results.sarif
+
+    - name: Upload Bandit Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: bandit-report
+        path: bandit-results.sarif
+
+    - name: Upload Bandit SARIF
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: bandit-results.sarif
+
+    #################################################
+    # PIP AUDIT
+    #################################################
+
+    - name: Dependency Audit
+      run: |
+        pip-audit \
+          -r backend/requirements.txt \
+          -f json \
+          -o pip-audit-report.json
+
+    - name: Upload Dependency Audit
+      uses: actions/upload-artifact@v4
+      with:
+        name: pip-audit-report
+        path: pip-audit-report.json
+
+    #################################################
+    # CODEQL
+    #################################################
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: python
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
