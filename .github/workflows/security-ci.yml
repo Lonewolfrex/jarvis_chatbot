@@ -67,19 +67,14 @@ jobs:
       run: |
         bandit \
           -r backend \
-          -f sarif \
-          -o bandit-results.sarif
+          -f json \
+          -o bandit-results.json
 
     - name: Upload Bandit Artifact
       uses: actions/upload-artifact@v4
       with:
         name: bandit-report
-        path: bandit-results.sarif
-
-    - name: Upload Bandit SARIF
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: bandit-results.sarif
+        path: bandit-results.json
 
     #################################################
     # PIP AUDIT
