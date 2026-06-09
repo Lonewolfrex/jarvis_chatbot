@@ -1,10 +1,18 @@
 # Environment
 .env
+.env.*
+.pem
+.key
+.crt
+
 
 # Python
 venv/
+.venv/
 __pycache__/
 *.pyc
+
+secrets/
 
 # Node
 node_modules/
@@ -28,6 +36,6 @@ ollama/
 
 # DB
 postgres/
-
+db.sqlite3
 data/*
 !data/**/.gitkeep

@@ -42,11 +42,11 @@ jobs:
 
       - name: Django Security Check
         run: |
-          python manage.py check
+          python backend/manage.py check
 
       - name: Django Deploy Check
         run: |
-          python manage.py check --deploy
+          python backend/manage.py check --deploy
 
       - name: Bandit Scan
         run: |
