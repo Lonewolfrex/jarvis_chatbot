@@ -50,7 +50,7 @@ jobs:
 
       - name: Bandit Scan
         run: |
-          bandit -r . -c .bandit
+          bandit -r backend -c .bandit
 
       - name: Dependency Audit
         run: |
