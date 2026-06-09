@@ -82,3 +82,62 @@ class OllamaService:
 
             except Exception:
                 continue
+
+    @staticmethod
+    def generate_chat(messages):
+
+        base_url=os.getenv(
+            "OLLAMA_BASE_URL",
+            "http://host.docker.internal:11434"
+        )
+
+        response=requests.post(
+            f"{base_url}/api/chat",
+            json={
+                "model":OllamaService.MODEL,
+                "messages":messages,
+                "stream":False
+            },
+            timeout=300
+        )
+
+        response.raise_for_status()
+
+        return response.json()["message"]["content"]
+
+    @staticmethod
+    def generate_chat_stream(messages):
+
+        base_url=os.getenv(
+            "OLLAMA_BASE_URL",
+            "http://host.docker.internal:11434"
+        )
+
+        response=requests.post(
+            f"{base_url}/api/chat",
+            json={
+                "model":OllamaService.MODEL,
+                "messages":messages,
+                "stream":True
+            },
+            stream=True
+        )
+
+        response.raise_for_status()
+
+        for line in response.iter_lines():
+
+            if not line:
+                continue
+
+            import json
+
+            chunk=json.loads(line)
+
+            if "message" in chunk:
+
+                yield chunk["message"].get(
+                    "content",
+                    ""
+                )
+
