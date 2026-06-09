@@ -27,6 +27,34 @@ SECRET_KEY = 'django-insecure-&9((0ea3jir@0#mu9cf(rn^(om*%d74bei!nrly@uc&#2wc45c
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+SECURE_BROWSER_XSS_FILTER = True
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+X_FRAME_OPTIONS = "DENY"
+
+SECURE_REFERRER_POLICY = "same-origin"
+
+SESSION_COOKIE_HTTPONLY = True
+
+CSRF_COOKIE_HTTPONLY = True
+
+if not DEBUG:
+
+    SECURE_SSL_REDIRECT = True
+
+    SESSION_COOKIE_SECURE = True
+
+    CSRF_COOKIE_SECURE = True
+
+else:
+
+    SECURE_SSL_REDIRECT = False
+
+    SESSION_COOKIE_SECURE = False
+
+    CSRF_COOKIE_SECURE = False
+
 ALLOWED_HOSTS = ["*"]
 
 
