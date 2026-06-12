@@ -1,151 +1,193 @@
 name: Jarvis Security CI
 
 on:
+push:
+branches:
+- main
+- security-fix1
 
-  push:
-    branches:
-      - main
-      - security-fix1
-
-  pull_request:
-    branches:
-      - main
+pull_request:
+branches:
+- main
 
 permissions:
-  contents: read
-  security-events: write
-  actions: read
+contents: read
+security-events: write
+actions: read
 
 jobs:
+#################################################
+# CODEQL
+#################################################
+codeql:
+name: CodeQL SAST
+runs-on: ubuntu-latest
 
-  security-scan:
+strategy:
+  fail-fast: false
+  matrix:
+    language: [python]
 
-    runs-on: ubuntu-latest
+steps:
+  - name: Checkout Repository
+    uses: actions/checkout@v4
 
-    env:
-      DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+  - name: Initialize CodeQL
+    uses: github/codeql-action/init@v3
+    with:
+      languages: ${{ matrix.language }}
+      queries: +security-extended,security-and-quality
 
-    steps:
+  - name: Perform CodeQL Analysis
+    uses: github/codeql-action/analyze@v3
+#################################################
+# DJANGO + BANDIT + PIP-AUDIT
+#################################################
+security-scan:
+name: Security Checks
+runs-on: ubuntu-latest
+needs: codeql
 
-    - name: Checkout
-      uses: actions/checkout@v4
+env:
+  DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
 
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
+steps:
+  - name: Checkout Repository
+    uses: actions/checkout@v4
 
-    - name: Install Dependencies
-      run: |
-        python -m pip install --upgrade pip
+  - name: Setup Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.12"
 
-        pip install -r backend/requirements.txt
+  - name: Install Dependencies
+    run: |
+      python -m pip install --upgrade pip
 
-        pip install \
-          bandit \
-          pip-audit
+      pip install -r backend/requirements.txt
 
-    #################################################
-    # DJANGO
-    #################################################
-
-    - name: Django Check
-      run: |
-        cd backend
-        python manage.py check
-
-    - name: Django Deploy Check
-      run: |
-        cd backend
-        python manage.py check --deploy
-
-    #################################################
-    # BANDIT
-    #################################################
-
-    - name: Run Bandit
-      run: |
+      pip install \
         bandit \
-          -r backend \
-          -f json \
-          -o bandit-results.json \
-          --exit-zero
+        pip-audit
 
-    - name: Upload Bandit Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: bandit-report
-        path: bandit-results.json
+  - name: Django Check
+    run: |
+      cd backend
+      python manage.py check
 
-    #################################################
-    # PIP AUDIT
-    #################################################
+  - name: Django Deploy Check
+    run: |
+      cd backend
+      python manage.py check --deploy
 
-    - name: Dependency Audit
-      run: |
-        pip-audit \
-          -r backend/requirements.txt \
-          -f json \
-          -o pip-audit-report.json || true
+  - name: Run Bandit
+    run: |
+      bandit \
+        -r backend \
+        -f json \
+        -o bandit-results.json \
+        --exit-zero
 
-    - name: Upload Dependency Audit
-      uses: actions/upload-artifact@v4
-      with:
-        name: pip-audit-report
-        path: pip-audit-report.json
+  - name: Upload Bandit Report
+    uses: actions/upload-artifact@v4
+    with:
+      name: bandit-report
+      path: bandit-results.json
 
+  - name: Dependency Audit
+    run: |
+      pip-audit \
+        -r backend/requirements.txt \
+        -f json \
+        -o pip-audit-report.json || true
 
-    ################################################# 
-    # GITLEAKS (SECRET SCANNING) 
-    ################################################# 
-    
-    - name: Run Gitleaks 
-      uses: gitleaks/gitleaks-action@v2 
-      env: 
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+  - name: Upload Dependency Audit
+    uses: actions/upload-artifact@v4
+    with:
+      name: pip-audit-report
+      path: pip-audit-report.json
+#################################################
+# GITLEAKS
+#################################################
+gitleaks:
+name: Secret Scanning
+runs-on: ubuntu-latest
+needs: security-scan
 
-    ################################################# 
-    # BUILD DOCKER IMAGE 
-    ################################################# 
+steps:
+  - name: Checkout Repository
+    uses: actions/checkout@v4
+    with:
+      fetch-depth: 0
 
-    - name: Build Docker Image 
-      run: | 
-        docker build \ 
-          -t jarvis:latest \ 
-          ./backend
+  - name: Run Gitleaks
+    uses: gitleaks/gitleaks-action@v2
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#################################################
+# DOCKER BUILD
+#################################################
+docker-build:
+name: Build Docker Image
+runs-on: ubuntu-latest
+needs: gitleaks
 
-    ################################################# 
-    # TRIVY CONTAINER SCAN 
-    ################################################# 
-    - name: Run Trivy Image Scan 
-      uses: aquasecurity/trivy-action@0.28.0 
-      with: 
-        image-ref: jarvis:latest 
-        format: sarif 
-        output: trivy-results.sarif 
-        severity: CRITICAL,HIGH 
-        ignore-unfixed: true 
-        
-    - name: Upload Trivy SARIF 
-      uses: github/codeql-action/upload-sarif@v3 
-      with:  
-        sarif_file: trivy-results.sarif 
-        
-    - name: Upload Trivy Artifact 
-      uses: actions/upload-artifact@v4 
-      with: 
-        name: trivy-report 
-        path: trivy-results.sarif
+steps:
+  - name: Checkout Repository
+    uses: actions/checkout@v4
 
-    #################################################
-    # CODEQL
-    #################################################
+  - name: Build Docker Image
+    run: |
+      docker build \
+        -t jarvis:latest \
+        ./backend
 
-    - name: Initialize CodeQL
-      uses: github/codeql-action/init@v3
-      with:
-        languages: python
+  - name: Save Docker Image
+    run: |
+      docker save jarvis:latest -o jarvis-image.tar
 
-    - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      
+  - name: Upload Docker Image Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: jarvis-image
+      path: jarvis-image.tar
+#################################################
+# TRIVY
+#################################################
+trivy:
+name: Trivy Container Scan
+runs-on: ubuntu-latest
+needs: docker-build
+
+steps:
+  - name: Download Docker Image Artifact
+    uses: actions/download-artifact@v4
+    with:
+      name: jarvis-image
+
+  - name: Load Docker Image
+    run: |
+      docker load -i jarvis-image.tar
+
+  - name: Run Trivy Scan
+    uses: aquasecurity/trivy-action@0.31.0
+    with:
+      image-ref: jarvis:latest
+      format: table
+      output: trivy-report.txt
+      exit-code: 0
+      ignore-unfixed: true
+      vuln-type: os,library
+      severity: CRITICAL,HIGH
+
+  - name: Convert Trivy Report to HTML
+    run: |
+      echo "<html><body><h1>Jarvis Trivy Report</h1><pre>" > trivy-report.html
+      cat trivy-report.txt >> trivy-report.html
+      echo "</pre></body></html>" >> trivy-report.html
+
+  - name: Upload Trivy Report
+    uses: actions/upload-artifact@v4
+    with:
+      name: trivy-report-html
+      path: trivy-report.html
