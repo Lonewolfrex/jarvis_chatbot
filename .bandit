@@ -1,0 +1,9 @@
+[bandit]
+
+exclude_dirs =
+    backend/venv,
+    backend/.venv,
+    migrations
+
+skips =
+    B101
