@@ -173,7 +173,7 @@ jobs:
           docker load -i jarvis-image.tar
 
       - name: Run Trivy Scan
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: jarvis:latest
           format: table
