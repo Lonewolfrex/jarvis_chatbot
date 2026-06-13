@@ -130,10 +130,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   #################################################
-  # DOCKER BUILD
+  # TRIVY DOCKER SCAN
   #################################################
-  docker-build:
-    name: Build Docker Image
+  docker-security:
+    name: Docker Security
     runs-on: ubuntu-latest
     needs: gitleaks
 
@@ -146,28 +146,6 @@ jobs:
           docker build \
             -t jarvis:latest \
             ./backend
-
-      - name: Save Docker Image
-        run: |
-          docker save jarvis:latest -o jarvis-image.tar
-
-  #################################################
-  # TRIVY
-  #################################################
-  trivy:
-    name: Trivy Container Scan
-    runs-on: ubuntu-latest
-    needs: docker-build
-
-    steps:
-      - name: Download Docker Image Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: jarvis-image
-
-      - name: Load Docker Image
-        run: |
-          docker load -i jarvis-image.tar
 
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@v0.36.0
