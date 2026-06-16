@@ -7,7 +7,7 @@ import os
 GITHUB_OWNER = "Lonewolfrex"
 GITHUB_REPO = "jarvis_chatbot"
 
-GITHUB_TOKEN = os.environ.get("GH_TOKEN")
+# GITHUB_TOKEN = os.environ.get("GH_TOKEN")
 
 if not GITHUB_TOKEN:
     raise ValueError(
