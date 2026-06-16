@@ -13,7 +13,7 @@ __pycache__/
 *.pyc
 
 secrets/
-
+jarvis_chatbot/monitoring/
 # Node
 node_modules/
 

@@ -147,12 +147,23 @@ jobs:
             -t jarvis:latest \
             ./backend
 
-      - name: Run Trivy Scan
+      - name: Run Trivy Table Scan
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: jarvis:latest
           format: table
           output: trivy-report.txt
+          exit-code: 0
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Run Trivy JSON Scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: jarvis:latest
+          format: json
+          output: trivy-results.json
           exit-code: 0
           ignore-unfixed: true
           vuln-type: os,library
@@ -167,6 +178,8 @@ jobs:
       - name: Upload Trivy Report
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-report-html
-          path: trivy-report.html
+          name: trivy-report
+          path: |
+            trivy-report.html
+            trivy-results.json
 
