@@ -70,7 +70,7 @@ class ArtifactSync:
         # Trivy JSON
         # ----------------------------------
         trivy_file = self.find_file( run_folder, "trivy-results.json" )
-        
+
         if trivy_file:
             TrivyParser.parse( trivy_file, run_id, self.db )
 
